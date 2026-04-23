@@ -2,8 +2,10 @@
 
 Este projeto automatiza a extração de dados de relatórios de **Contas a Pagar** do ERP Sienge (PDF) e os transforma em um dashboard interativo, visual e moderno.
 
-![Dashboard Preview 1](docs/preview_top.png)
-![Dashboard Preview 2](docs/preview_bottom.png)
+## 🖼️ Preview
+Abaixo, uma visão geral da interface gerada automaticamente a partir do processamento dos relatórios:
+
+![Dashboard Managerial Preview](docs/preview_top.png)
 
 ## 📌 Funcionalidades
 - **Extração Automática**: Script Python que processa múltiplos PDFs do Sienge e consolida em JSON.
@@ -15,7 +17,7 @@ Este projeto automatiza a extração de dados de relatórios de **Contas a Pagar
 ## 🚀 Como Usar
 
 ### 1. Instalação
-Clone o repositório e instale as dependências:
+Acesse a pasta do projeto e instale as dependências:
 ```bash
 pip install -r requirements.txt
 ```
@@ -35,7 +37,7 @@ python abrir_dashboard.py
 ```
 
 ## 🛡️ Segurança e Privacidade
-Este projeto roda localmente. **Nenhum dado é enviado para servidores externos.** O processamento é feito inteiramente na sua máquina.
+Este projeto roda localmente. **Nenhum dado é enviado para servidores externos.** O processamento é feito inteiramente na sua máquina. O arquivo `.gitignore` já está configurado para não subir seus PDFs originais.
 
 ## 📄 Licença
 Este projeto está sob a licença MIT. 
