@@ -1,0 +1,20 @@
+# Arquivos de Dados (Sienge PDFs e JSONs)
+*.pdf
+*.json
+!app/config.json
+*.xlsx
+*.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+vcl/
+env/
+.env
+
+# Workspace / IDE
+.vscode/
+.idea/
+.agent/
+企

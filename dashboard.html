@@ -1,0 +1,1916 @@
+<!--
+    =====================================================================
+    Dashboard Gerencial - Relatório de Contas a Pagar
+    Autor: Pedro Henrique Brasil Ribeiro
+    Descrição: Dashboard interativo para visualização e análise de contas
+               a pagar, com suporte a importação de PDFs e JSON.
+    =====================================================================
+-->
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Contas a Pagar</title>
+    <meta name="description"
+        content="Dashboard gerencial de contas a pagar com análise por fornecedor, tipo de documento e vencimento.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-dark: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+            background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.15), transparent),
+                radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), transparent);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .title-area h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .timestamp {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .filters-area {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .filter-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        select,
+        .search-input {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 0.6rem 1rem;
+            border-radius: 0.5rem;
+            outline: none;
+            cursor: pointer;
+            min-width: 180px;
+        }
+
+        select option {
+            background: #1e293b;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .kpi-card.active-all {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .kpi-card.active-vencido {
+            border-color: var(--danger);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .kpi-card.active-30d {
+            border-color: var(--warning);
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .kpi-card.active-ok {
+            border-color: var(--success);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .kpi-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .kpi-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .kpi-value.money {
+            color: var(--primary);
+        }
+
+        .content-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .card-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            padding: 1rem 1.5rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            background: rgba(15, 23, 42, 0.3);
+        }
+
+        th.sortable {
+            cursor: pointer;
+            transition: color 0.2s;
+            position: relative;
+        }
+
+        th.sortable:hover {
+            color: var(--primary);
+        }
+
+        th.sort-active {
+            color: var(--primary);
+        }
+
+        .sort-icon {
+            margin-left: 5px;
+            font-size: 0.8em;
+        }
+
+        td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .btn-view {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.4rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-view:hover {
+            background: var(--primary-hover);
+        }
+
+        .badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-vencido {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
+        .badge-30d {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+        }
+
+        .badge-ok {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal {
+            background: #1e293b;
+            width: 95%;
+            max-width: 900px;
+            border-radius: 1rem;
+            border: 1px solid var(--glass-border);
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .search-container {
+            position: relative;
+            flex-grow: 1;
+        }
+
+        .search-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1e293b;
+            border: 1px solid var(--glass-border);
+            border-radius: 0.5rem;
+            margin-top: 0.3rem;
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .dropdown-item {
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover {
+            background: rgba(99, 102, 241, 0.2);
+            padding-left: 1.2rem;
+            color: var(--primary);
+        }
+
+        .type-indicator-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-bottom: 2.5rem;
+            padding: 1.5rem;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+        }
+
+        .type-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            padding: 0.5rem 0.8rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .type-badge.active {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+        }
+
+        .type-badge:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+        }
+
+        .type-badge::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 0.5rem 0.8rem;
+            border-radius: 0.4rem;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1001;
+            border: 1px solid var(--glass-border);
+        }
+
+        .type-badge:hover::after {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .type-count {
+            background: var(--primary);
+            color: white;
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.3rem;
+            font-weight: 600;
+            font-size: 0.7rem;
+        }
+
+        .type-label {
+            color: var(--text-muted);
+        }
+
+        .section-title {
+            width: 100%;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        #monthlyChartContainer {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 2.5rem;
+            min-height: 350px;
+            display: block !important;
+        }
+
+        #monthlyChartContainer h3 {
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        #monthlyChart {
+            display: block !important;
+            max-height: 300px;
+            min-height: 300px;
+        }
+
+        .sidebar-toggle {
+            position: fixed;
+            left: 2rem;
+            bottom: 3rem;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+            transition: all 0.3s ease;
+            z-index: 49;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 30px rgba(16, 185, 129, 0.6);
+        }
+
+        .sidebar-panel {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 350px;
+            height: 100vh;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--glass-border);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 99;
+            overflow-y: auto;
+            padding: 2rem 1.5rem;
+        }
+
+        .sidebar-panel.open {
+            transform: translateX(0);
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .sidebar-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .top-10-item {
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 0.5rem;
+        }
+
+        .top-10-rank {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-right: 0.8rem;
+        }
+
+        .top-10-name {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .top-10-value {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-top: 0.3rem;
+        }
+
+        .top-10-docs {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 0.2rem;
+        }
+
+        /* ======== LANDING / DROP ZONE ======== */
+        #landing-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: var(--bg-dark);
+            background-image: radial-gradient(circle at center, rgba(99, 102, 241, 0.2), var(--bg-dark));
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            transition: opacity 0.4s ease;
+        }
+
+        .landing-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            padding: 3rem;
+            border-radius: 1.5rem;
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .landing-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .drop-zone {
+            border: 3px dashed rgba(99, 102, 241, 0.4);
+            border-radius: 1rem;
+            padding: 3rem 2rem;
+            margin: 1.5rem 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.drag-over {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.08);
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.15);
+        }
+
+        .drop-zone-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            display: block;
+            filter: grayscale(0.3);
+        }
+
+        .drop-zone-text {
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .drop-zone-hint {
+            color: rgba(148, 163, 184, 0.6);
+            font-size: 0.8rem;
+        }
+
+        .drop-zone input[type=file] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* Processing Overlay */
+        #processing-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3000;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(99, 102, 241, 0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #processing-text {
+            color: var(--text-muted);
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        /* Version History */
+        .version-history {
+            margin-top: 1.5rem;
+            text-align: left;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        .version-history h4 {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 0.8rem;
+            letter-spacing: 0.05em;
+        }
+
+        .version-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 0.6rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .version-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+        }
+
+        .version-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .version-item-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .version-item-date {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .version-item-meta {
+            font-size: 0.72rem;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .version-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .version-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0.2rem;
+            transition: color 0.2s;
+        }
+
+        .version-btn:hover {
+            color: var(--danger);
+        }
+
+        .version-btn.load:hover {
+            color: var(--success);
+        }
+
+        .no-versions {
+            color: rgba(148, 163, 184, 0.5);
+            font-size: 0.8rem;
+            font-style: italic;
+            text-align: center;
+            padding: 1rem;
+        }
+
+        /* New Report Button (visible when dashboard is loaded) */
+        .btn-new-report {
+            position: fixed;
+            right: 2rem;
+            bottom: 2rem;
+            padding: 0.8rem 1.5rem;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            border: none;
+            border-radius: 2rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 900;
+            box-shadow: 0 8px 20px rgba(34, 197, 94, 0.4);
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .btn-new-report:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 30px rgba(34, 197, 94, 0.6);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .title-area h1 {
+                font-size: 1.8rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filters-area {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            header {
+                flex-direction: column;
+            }
+
+            .sidebar-panel {
+                width: 100%;
+            }
+
+            .sidebar-toggle {
+                left: 1rem;
+            }
+
+            .landing-card {
+                padding: 2rem 1.5rem;
+            }
+        }
+        /* ===== Footer do Autor ===== */
+        .author-footer {
+            text-align: center;
+            padding: 1.5rem 1rem;
+            margin-top: 2rem;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            border-top: 1px solid var(--glass-border);
+            opacity: 0.6;
+            transition: opacity 0.3s;
+        }
+        .author-footer:hover {
+            opacity: 1;
+        }
+        .author-footer .author-name {
+            color: var(--primary);
+            font-weight: 600;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+
+</head>
+
+<body>
+    <!-- ===== LANDING PAGE: Drop Zone + Version History ===== -->
+    <div id="landing-page">
+        <div class="landing-card">
+            <h1 class="landing-title">Relatório de Contas a Pagar</h1>
+            <div id="pyodide-status"
+                style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:8px;padding:0.6rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:var(--text-muted);">
+                <span id="pyodide-icon" style="animation:spin 1s linear infinite;">⏳</span>
+                <span id="pyodide-msg">Carregando motor de PDF... (primeira vez pode demorar ~15s)</span>
+            </div>
+            <p style="color: var(--text-muted); margin-bottom: 0.5rem;">Arraste o(s) PDF(s) do relatório ou clique para
+                selecionar</p>
+
+            <div class="drop-zone" id="drop-zone">
+                <span class="drop-zone-icon">📄</span>
+                <p class="drop-zone-text">Solte o(s) arquivo(s) <strong>.pdf</strong> aqui</p>
+                <p class="drop-zone-hint">Aceita múltiplos PDFs (serão mesclados) · também aceita .json</p>
+                <input type="file" id="file-input" accept=".pdf,.json" multiple>
+            </div>
+
+            <div class="version-history" id="version-history">
+                <h4>📂 Versões Anteriores</h4>
+                <div id="version-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== DASHBOARD CONTENT ===== -->
+    <div class="container" id="dashboard-content" style="display:none;">
+        <header>
+            <div class="title-area">
+                <h1>Relatório de Contas a Pagar</h1>
+                <p class="timestamp">Atualizado em: <span id="update-time"></span> · <span id="version-label"
+                        style="color:var(--primary);font-weight:600;"></span></p>
+            </div>
+            <div class="filters-area">
+                <div class="filter-group">
+                    <span class="filter-label">Ano Venc.</span>
+                    <select id="year-select">
+                        <option value="all">Todos</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <span class="filter-label">Mês Venc.</span>
+                    <select id="month-select">
+                        <option value="all">Todos</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <span class="filter-label">Obra</span>
+                    <select id="obra-select">
+                        <option value="all">Todas</option>
+                    </select>
+                </div>
+            </div>
+
+        </header>
+
+        <div class="type-indicator-grid" id="type-indicators">
+            <div class="section-title">Resumo por Tipo de Documento</div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="kpi-card" id="kpi-all" onclick="toggleStatusFilter('all')">
+                <p class="kpi-label">Total em Aberto</p>
+                <p class="kpi-value money" id="total-geral">R$ 0,00</p>
+            </div>
+            <div class="kpi-card" id="kpi-vencido" onclick="toggleStatusFilter('Vencido')">
+                <p class="kpi-label">Vencidos</p>
+                <p class="kpi-value" id="total-vencido" style="color: var(--danger)">R$ 0,00</p>
+            </div>
+            <div class="kpi-card" id="kpi-30d" onclick="toggleStatusFilter('A vencer (até 30 dias)')">
+                <p class="kpi-label">A vencer (30d)</p>
+                <p class="kpi-value" id="total-30d" style="color: var(--warning)">R$ 0,00</p>
+            </div>
+            <div class="kpi-card" id="kpi-ok" onclick="toggleStatusFilter('A vencer (acima de 30 dias)')">
+                <p class="kpi-label">A vencer (>30d)</p>
+                <p class="kpi-value" id="total-ok" style="color: var(--success)">R$ 0,00</p>
+            </div>
+            <div class="kpi-card">
+                <p class="kpi-label">Fornecedores</p>
+                <p class="kpi-value" id="total-fornecedores">0</p>
+            </div>
+            <div class="kpi-card">
+                <p class="kpi-label">Documentos</p>
+                <p class="kpi-value" id="total-documentos">0</p>
+            </div>
+        </div>
+
+        <div id="monthlyChartContainer">
+            <h3>📊 Desembolso Mensal por Vencimento</h3>
+            <canvas id="monthlyChart"></canvas>
+        </div>
+
+        <div class="content-card">
+            <div class="card-header">
+                <h2>Resumo por Fornecedor</h2>
+                <div class="search-container">
+                    <input type="text" class="search-input" id="search" placeholder="Buscar fornecedor..."
+                        onfocus="showDropdown()" autocomplete="off">
+                    <div id="search-dropdown" class="search-dropdown"></div>
+                </div>
+            </div>
+            <table id="supplier-table">
+                <thead>
+                    <tr>
+                        <th class="sortable" onclick="toggleSort('fornecedor')" id="th-fornecedor">Fornecedor <span
+                                class="sort-icon">↕</span></th>
+                        <th class="sortable text-right" onclick="toggleSort('qtd')" id="th-qtd">Docs <span
+                                class="sort-icon">↕</span></th>
+                        <th class="sortable text-right" onclick="toggleSort('total')" id="th-total">Total <span
+                                class="sort-icon">↕</span></th>
+                        <th class="sortable text-right" onclick="toggleSort('proximo')" id="th-proximo">Próximo Venc.
+                            <span class="sort-icon">↕</span>
+                        </th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="supplier-body"></tbody>
+            </table>
+        </div>
+
+        <!-- Rodapé com créditos do autor -->
+        <div class="author-footer">
+            Desenvolvido por <span class="author-name">Pedro Henrique Brasil Ribeiro</span> · Dashboard Gerencial v5
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Detalhes</h3>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <table id="details-table">
+                    <thead>
+                        <tr>
+                            <th>Doc</th>
+                            <th>Lançamento</th>
+                            <th>Tipo</th>
+                            <th>Obra</th>
+                            <th class="text-right">Vencimento</th>
+                            <th class="text-right">Valor</th>
+                            <th class="text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="details-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Top 10 -->
+    <div class="sidebar-panel" id="sidebar-panel">
+        <div class="sidebar-header">
+            <h3>🏆 Top 10</h3>
+            <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+        </div>
+        <div id="top-10-list"></div>
+    </div>
+    <button class="sidebar-toggle" onclick="toggleSidebar()" style="display:none;" id="btn-sidebar">🏆</button>
+
+    <!-- Floating Excel Button -->
+    <button id="btn-excel" onclick="exportToExcel()"
+        style="display:none;position:fixed;right:24px;bottom:6rem;z-index:900;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;padding:0.9rem 1.4rem;border-radius:14px;cursor:pointer;font-size:0.9rem;font-weight:700;box-shadow:0 6px 20px rgba(34,197,94,0.4);transition:all 0.3s;display:flex;align-items:center;gap:0.5rem;"
+        onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 30px rgba(34,197,94,0.5)'"
+        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 6px 20px rgba(34,197,94,0.4)'">📥
+        Baixar Excel</button>
+
+    <!-- New Report Button -->
+    <button class="btn-new-report" id="btn-new-report" onclick="showLanding()">📄 Novo Relatório</button>
+
+    <!-- Processing Overlay -->
+    <div id="processing-overlay">
+        <div class="spinner"></div>
+        <div id="processing-text">Processando PDF...</div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // Dashboard Gerencial - Relatório de Contas a Pagar
+        // Autor: Pedro Henrique Brasil Ribeiro
+        // =====================================================================
+
+        // ========== PYODIDE (Python no navegador) ==========
+        let pyodideReady = false;
+        let pyodide = null;
+
+        async function initPyodide() {
+            try {
+                document.getElementById('pyodide-msg').textContent = 'Baixando motor Python...';
+                pyodide = await loadPyodide();
+
+                document.getElementById('pyodide-msg').textContent = 'Instalando PyPDF2...';
+                await pyodide.loadPackage('micropip');
+                const micropip = pyodide.pyimport('micropip');
+                await micropip.install('PyPDF2');
+
+                document.getElementById('pyodide-msg').textContent = 'Carregando parser...';
+                await pyodide.runPythonAsync(PYTHON_PARSER_CODE);
+
+                pyodideReady = true;
+                document.getElementById('pyodide-icon').style.animation = 'none';
+                document.getElementById('pyodide-icon').textContent = '✅';
+                document.getElementById('pyodide-msg').textContent = 'Motor de PDF pronto!';
+                setTimeout(() => {
+                    const el = document.getElementById('pyodide-status');
+                    if (el) el.style.display = 'none';
+                }, 3000);
+            } catch (e) {
+                document.getElementById('pyodide-icon').style.animation = 'none';
+                document.getElementById('pyodide-icon').textContent = '❌';
+                document.getElementById('pyodide-msg').textContent = 'Erro ao carregar motor de PDF: ' + e.message;
+                console.error('Pyodide init error:', e);
+            }
+        }
+
+        // Python extraction code embedded as string
+        const PYTHON_PARSER_CODE = `
+import re, json, io
+from datetime import datetime
+from PyPDF2 import PdfReader
+
+def extrair_texto_pdf_bytes(pdf_bytes):
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    textos = []
+    for page in reader.pages:
+        t = page.extract_text()
+        if t: textos.append(t)
+    return '\\n'.join(textos)
+
+def processar_dados_pdf(texto):
+    if 'por Data de Vencimento' in texto[:500]:
+        return processar_dados_pdf_data_vencimento(texto)
+    return processar_dados_pdf_credor(texto)
+
+def processar_dados_pdf_data_vencimento(texto):
+    dados = {"atualizado_em": datetime.now().strftime('%d/%m/%Y %H:%M'), "total_geral": 0.0, "total_fornecedores": 0, "total_documentos": 0, "obras": [], "fornecedores": []}
+    linhas = texto.split('\\n')
+    KNOWN_TYPES_REGEX = r'(PRC[A-Z]+|NFE|NFSE|PPC|PCT|CAU|GPS|FAT|REC|ND|CAUCAO|NF|DOC|ADF|AV|ISS|CSRF|CF|PRV|MDC)\\.?'
+    obra_arquivo = 'Indefinida'
+    for linha in linhas[:20]:
+        m = re.search(r'(Nest\\s+\\d+|OBRA\\s+Aruna\\s+Torres|OBRA\\s+\\d+|Cidade\\s+Aruna|Aruna\\s+Torres|URBI)', linha, re.IGNORECASE)
+        if m:
+            nome = m.group(1).strip().upper()
+            if 'TORRES' in nome: obra_arquivo = 'Aruna Torres'
+            elif 'ARUNA' in nome or 'URBI' in nome: obra_arquivo = 'Cidade Aruna (URBI)'
+            elif 'NEST' in nome: obra_arquivo = 'Nest 635'
+            else: obra_arquivo = m.group(1).strip()
+            break
+    docs = []
+    data_venc_atual = None
+    fornecedor_acumulado = []
+    for i, linha in enumerate(linhas):
+        lc = linha.strip()
+        if not lc: continue
+        if 'SIENGE / STARIAN' in linha: continue
+        if linha.startswith('Empresa ') or linha.startswith('Obra') or linha.startswith('Per\\u00edodo'): continue
+        if linha.startswith('Juros') or linha.startswith('Ap\\u00f3s Vencto') or 'Total do dia' in linha or 'Total vencido no per' in linha or 'Total a vencer no per' in linha or 'Total da empresa' in linha:
+            fornecedor_acumulado = []; continue
+        if linha.startswith('Contas a Pagar') or 'Credor Documento Lan' in linha: continue
+        md = re.search(r'^Data de vencimento\\s+(\\d{2}/\\d{2}/\\d{4})', linha)
+        if md: data_venc_atual = md.group(1); fornecedor_acumulado = []; continue
+        if 'Obs:' in linha: continue
+        match_doc_line = re.search(r'\\s+(\\d+/\\d+|\\d+)\\s+\\d+\\s*\\d*\\s*\\d*\\s*(?:[\\d.]*,\\d{2}\\s*){1,4}$', linha)
+        if match_doc_line and data_venc_atual:
+            lancamento = match_doc_line.group(1)
+            vals = re.findall(r'[\\d.]*,\\d{2}', linha)
+            if not vals: continue
+            valor = float(vals[-1].replace('.','').replace(',','.'))
+            texto_info = linha[:match_doc_line.start()].strip()
+            if fornecedor_acumulado: texto_info = ' '.join(fornecedor_acumulado) + ' ' + texto_info; fornecedor_acumulado = []
+            mt = re.search(KNOWN_TYPES_REGEX, texto_info, re.IGNORECASE)
+            tipo_doc, num_doc, fornecedor = 'OUTROS', 'N/D', texto_info
+            if mt:
+                tipo_doc = mt.group(1).upper()
+                if tipo_doc.startswith('PRC') and len(tipo_doc) > 3: tipo_doc = tipo_doc[3:]
+                num_doc = texto_info[mt.end():].strip().strip('- ') or 'N/D'
+                fornecedor = texto_info[:mt.start()].strip()
+            else:
+                partes = texto_info.split()
+                if len(partes) > 1 and (partes[-1].isdigit() or '/' in partes[-1]): num_doc = partes[-1]; fornecedor = ' '.join(partes[:-1])
+            fornecedor = re.sub(r'venctoAcr[e\\u00e9]scimo Desconto Total\\s*', '', fornecedor).strip()
+            fornecedor = re.sub(r'Credor Documento Lan[a-z]*\\s*', '', fornecedor).strip()
+            fornecedor = re.sub(r'^[\\d.,\\s-]+(?=[A-Z])', '', fornecedor).strip()
+            fornecedor = re.sub(r'^[\\W_]+', '', fornecedor).rstrip(' -').strip()
+            if not fornecedor: fornecedor = 'Desconhecido'
+            # Regra de classificação (Autor: Pedro Henrique Brasil Ribeiro)
+            # Vencidos do mês atual são tratados como "A vencer (até 30 dias)"
+            # Somente meses anteriores são considerados "Vencido"
+            try:
+                dt_venc = datetime.strptime(data_venc_atual, '%d/%m/%Y')
+                agora = datetime.now()
+                dd = (dt_venc - agora).days
+                if dd < 0:
+                    if dt_venc.year == agora.year and dt_venc.month == agora.month:
+                        status = 'A vencer (at\\u00e9 30 dias)'
+                    else:
+                        status = 'Vencido'
+                elif dd <= 30:
+                    status = 'A vencer (at\\u00e9 30 dias)'
+                else:
+                    status = 'A vencer (acima de 30 dias)'
+            except: status = 'A vencer (acima de 30 dias)'
+            docs.append((fornecedor, {'documento': num_doc, 'lancamento': lancamento, 'tipo': tipo_doc, 'vencimento': data_venc_atual, 'valor': valor, 'status': status, 'obra': obra_arquivo}))
+        else:
+            if 'Total do dia' not in lc: fornecedor_acumulado.append(lc)
+    fmap = {}
+    for forn, doc in docs:
+        if forn not in fmap: fmap[forn] = {'fornecedor': forn, 'qtd': 0, 'total': 0.0, 'proximo': doc['vencimento'], 'distante': doc['vencimento'], 'documentos': []}
+        fmap[forn]['documentos'].append(doc); fmap[forn]['qtd'] += 1; fmap[forn]['total'] += doc['valor']
+    dados['fornecedores'] = list(fmap.values())
+    dados['total_geral'] = sum(f['total'] for f in dados['fornecedores'])
+    dados['total_fornecedores'] = len(dados['fornecedores'])
+    dados['total_documentos'] = sum(f['qtd'] for f in dados['fornecedores'])
+    dados['obras'] = [obra_arquivo] if obra_arquivo != 'Indefinida' else []
+    return dados
+
+def processar_dados_pdf_credor(texto):
+    dados = {"atualizado_em": datetime.now().strftime('%d/%m/%Y %H:%M'), "total_geral": 0.0, "total_fornecedores": 0, "total_documentos": 0, "obras": [], "fornecedores": []}
+    linhas = texto.split('\\n')
+    fornecedor_atual = None; obras_set = set(); fornecedores_map = {}; obra_atual = 'Indefinida'
+    KNOWN_TYPES_REGEX = r'\\b(PRC[A-Z]+|NFE|NFSE|PPC|PCT|CAU|GPS|FAT|REC|ND|CAUCAO|NF|DOC|ADF|AV|ISS|CSRF|CF)\\.?'
+    REGEX_OBRA = r'(Nest\\s+\\d+|OBRA\\s+Aruna\\s+Torres|OBRA\\s+\\d+|Cidade\\s+Aruna|Aruna\\s+Torres|URBI\\s+\\-\\s+Custos|URBI)'
+    SKIP_PREFIXES = ['Credor Centro','Contas a Pagar','Per\\u00edodo','SIENGE','Total do credor','Obs:','Empresa','Data do','Juros','Ap\\u00f3s Vencto','PAGO','PAGA','NF ','VERIFICAR','RETENCAO','REFERENTE']
+    for i, linha in enumerate(linhas):
+        lc = linha.strip()
+        if not lc: continue
+        if 'Credor Centro de custo' in linha or 'Contas a Pagar' in linha: continue
+        if linha.startswith('Per'): continue
+        if 'SIENGE / STARIAN' in linha or 'Total do credor' in linha or 'Obs:' in linha: continue
+        if lc.startswith('Empresa') and ('PRC Empreendimentos' in linha or 'XR Aruna Torres' in linha or 'Empreendimentos' in linha): continue
+        if 'Nest 635' in linha or 'OBRA' in linha.upper() or 'ARUNA' in linha.upper() or 'URBI' in linha.upper() or 'TORRES' in linha.upper():
+            mc = re.search(REGEX_OBRA, linha, re.IGNORECASE)
+            if mc:
+                nr = mc.group(1).strip().upper()
+                if 'TORRES' in nr: obra_atual = 'Aruna Torres'
+                elif ('ARUNA' in nr or 'URBI' in nr) and 'TORRES' not in nr: obra_atual = 'Cidade Aruna (URBI)'
+                elif 'NEST' in nr: obra_atual = 'Nest 635'
+                else: obra_atual = mc.group(1).strip()
+                obras_set.add(obra_atual)
+                pf = linha[:mc.start()].strip()
+                if i > 0:
+                    la = linhas[i-1].strip()
+                    skip = any(p in la for p in SKIP_PREFIXES)
+                    if not skip and not re.search(r'\\d+ de \\d+', la) and not re.search(REGEX_OBRA, la, re.IGNORECASE) and len(la) > 3:
+                        pf = la + ' ' + pf if pf else la
+                        if i > 1:
+                            la2 = linhas[i-2].strip()
+                            skip2 = any(p in la2 for p in SKIP_PREFIXES)
+                            if not skip2 and not re.search(r'\\d+ de \\d+', la2) and not re.search(REGEX_OBRA, la2, re.IGNORECASE) and len(la2) > 3:
+                                pf = la2 + ' ' + pf
+                if pf and len(pf) > 3 and not re.match(r'^\\d+$', pf) and 'Empresa' not in pf and 'Obra82' not in pf:
+                    nf = pf.strip()
+                    nf = re.sub(r'^[\\W_]+', '', nf)
+                    nf = re.sub(r'Cidade\\s+Aruna.*$', '', nf, flags=re.IGNORECASE).strip()
+                    nf = re.sub(r'URBI\\s*-\\s*Custos.*$', '', nf, flags=re.IGNORECASE).strip()
+                    nf = re.sub(r'Nest\\s+\\d+.*$', '', nf, flags=re.IGNORECASE).strip()
+                    nf = re.sub(r'OBRA\\s+Aruna\\s+Torres.*$', '', nf, flags=re.IGNORECASE).strip()
+                    nf = re.sub(r'Aruna\\s+Torres.*$', '', nf, flags=re.IGNORECASE).strip()
+                    nf = re.sub(r'Itororó.*$', '', nf, flags=re.IGNORECASE).strip()
+                    nf = re.sub(r'Lote\\s+\\d+.*$', '', nf, flags=re.IGNORECASE).strip()
+                    nf = re.sub(r'Studio.*$', '', nf, flags=re.IGNORECASE).strip()
+                    nf = nf.rstrip(' -').strip()
+                    if len(nf) < 3: continue
+                    if re.match(r'^(PRC|NFE|NFSE|PPC|PCT|CAU|GPS|FAT|REC|ND|CAUCAO)', nf, re.IGNORECASE): continue
+                    if re.match(r'^[\\d\\s.\\-/]+$', nf): continue
+                    if any(p in nf.upper() for p in ['PGTO:','PIX','BANCO','PARCELA','AG:','CC:']): continue
+                    if re.match(r'^(Obra|OBRA)\\d+', nf, re.IGNORECASE): continue
+                    if nf in fornecedores_map: fornecedor_atual = fornecedores_map[nf]
+                    else:
+                        fornecedor_atual = {'fornecedor': nf, 'qtd': 0, 'total': 0.0, 'proximo': '', 'distante': '', 'documentos': []}
+                        fornecedores_map[nf] = fornecedor_atual; dados['fornecedores'].append(fornecedor_atual)
+        mdl = re.search(r'(\\d*)(\\d{2}/\\d{2}/\\d{4})\\s+\\d*\\s+(.*)', linha)
+        if mdl and fornecedor_atual:
+            vencimento = mdl.group(2); vs = mdl.group(3)
+            vals = re.findall(r'[\\d.]*,\\d{2}', vs)
+            if not vals: continue
+            valor = float(vals[-1].replace('.','').replace(',','.'))
+            # Regra de classificação (Autor: Pedro Henrique Brasil Ribeiro)
+            # Vencidos do mês atual são tratados como "A vencer (até 30 dias)"
+            try:
+                dt_venc = datetime.strptime(vencimento, '%d/%m/%Y')
+                agora = datetime.now()
+                dd = (dt_venc - agora).days
+                if dd < 0:
+                    if dt_venc.year == agora.year and dt_venc.month == agora.month:
+                        status = 'A vencer (at\\u00e9 30 dias)'
+                    else:
+                        status = 'Vencido'
+                elif dd <= 30:
+                    status = 'A vencer (at\\u00e9 30 dias)'
+                else:
+                    status = 'A vencer (acima de 30 dias)'
+            except: status = 'A vencer (acima de 30 dias)'
+            ti = linha[:linha.find(mdl.group(0))].strip()
+            # Limpeza do Centro de Custo em ti (onde costuma ficar Obra e Centro de Custo)
+            # Usamos prefixos conhecidos para parar a limpeza antes do documento
+            pos_doc = -1
+            match_tipo_pos = re.search(KNOWN_TYPES_REGEX, ti, re.IGNORECASE)
+            if match_tipo_pos:
+                pos_doc = match_tipo_pos.start()
+            
+            if 'Nest 635' in ti or 'URBI' in ti or 'Cidade Aruna' in ti or 'Aruna Torres' in ti:
+                # Se achamos um tipo de doc, limpamos apenas o que vem ANTES dele
+                if pos_doc != -1:
+                    ti = ti[pos_doc:].strip()
+                else:
+                    # Fallback caso nao ache tipo claro
+                    mo = re.search(r'(Nest 635|URBI|Cidade Aruna|Aruna Torres).*?-', ti)
+                    if mo: ti = ti[mo.end():].strip()
+            
+            ti = re.sub(r'Custos\s+Obra\s*', '', ti, flags=re.IGNORECASE).strip()
+            ti = re.sub(r'Custos\s+Incorporadora\s*', '', ti, flags=re.IGNORECASE).strip()
+            
+            tipo_doc, num_doc, lancamento = 'OUTROS', 'N/D', '---'
+            mt = re.search(KNOWN_TYPES_REGEX, ti, re.IGNORECASE)
+            if mt:
+                tipo_doc = mt.group(1).upper()
+                if tipo_doc.startswith('PRC') and len(tipo_doc) > 3: tipo_doc = tipo_doc[3:]
+                
+                # O que sobra apos o tipo
+                tsem = ti[mt.end():].strip()
+                # Se o tipo tinha um ponto colado (ex: NFE. 123), o mt.end() ja pula ele
+                
+                # Tentar separar Numero Doc de Lancamento
+                # Padrao comum: [Numero] [Lancamento]
+                pal = tsem.split()
+                if pal:
+                    # O ultimo item costuma ser o lancamento se tiver / ou for numero longo
+                    pl = pal[-1]
+                    if '/' in pl or (pl.isdigit() and len(pl) > 3):
+                        lancamento = pl
+                        num_doc = " ".join(pal[:-1])
+                    else:
+                        num_doc = " ".join(pal)
+                
+                num_doc = num_doc.strip('- ').strip()
+                if not num_doc: num_doc = "N/D"
+                
+                # Limpa lancamento de ruidos
+                cl = re.search(r'(\d+/\d+|\d+)$', lancamento)
+                if cl: lancamento = cl.group(1)
+            doc = {'documento': num_doc, 'lancamento': lancamento, 'tipo': tipo_doc, 'vencimento': vencimento, 'valor': valor, 'status': status, 'obra': obra_atual}
+            fornecedor_atual['documentos'].append(doc); fornecedor_atual['qtd'] += 1; fornecedor_atual['total'] += valor
+            if not fornecedor_atual['proximo']: fornecedor_atual['proximo'] = vencimento
+            if not fornecedor_atual['distante']: fornecedor_atual['distante'] = vencimento
+    dados['total_geral'] = sum(f['total'] for f in dados['fornecedores'])
+    dados['total_fornecedores'] = len(dados['fornecedores'])
+    dados['total_documentos'] = sum(f['qtd'] for f in dados['fornecedores'])
+    dados['obras'] = sorted(list(obras_set))
+    return dados
+
+def merge_dados(existente, novos):
+    if not existente['fornecedores']:
+        existente['fornecedores'] = novos['fornecedores']; existente['obras'] = novos['obras']
+        existente['total_geral'] = novos['total_geral']; existente['total_documentos'] = novos['total_documentos']; existente['total_fornecedores'] = novos['total_fornecedores']
+        return existente
+    mp = {f['fornecedor']: f for f in existente['fornecedores']}
+    for nf in novos['fornecedores']:
+        if nf['fornecedor'] in mp: mp[nf['fornecedor']]['documentos'].extend(nf['documentos']); mp[nf['fornecedor']]['qtd'] += nf['qtd']; mp[nf['fornecedor']]['total'] += nf['total']
+        else: existente['fornecedores'].append(nf)
+    existente['obras'] = sorted(list(set(existente['obras'] + novos['obras'])))
+    existente['total_geral'] = sum(f['total'] for f in existente['fornecedores'])
+    existente['total_fornecedores'] = len(existente['fornecedores'])
+    existente['total_documentos'] = sum(f['qtd'] for f in existente['fornecedores'])
+    return existente
+
+def processar_pdf_bytes(pdf_bytes_list):
+    dados_finais = {"atualizado_em": datetime.now().strftime('%d/%m/%Y %H:%M'), "total_geral": 0.0, "total_fornecedores": 0, "total_documentos": 0, "obras": [], "fornecedores": []}
+    for pdf_bytes in pdf_bytes_list:
+        texto = extrair_texto_pdf_bytes(pdf_bytes)
+        if texto:
+            dados = processar_dados_pdf(texto)
+            dados_finais = merge_dados(dados_finais, dados)
+    return json.dumps(dados_finais, ensure_ascii=False)
+`;
+
+        // Start loading Pyodide immediately
+        initPyodide();
+    </script>
+    <script>
+        // ========== GLOBAL STATE ==========
+        let rawData = null;
+        let currentMonthFilter = 'all';
+        let currentObraFilter = 'all';
+        let currentYearFilter = 'all';
+        let currentStatusFilter = 'all';
+        let currentTypeFilter = 'all';
+        let currentSearchTerm = '';
+        let sortConfig = { column: 'total', direction: 'desc' };
+        let monthlyChart = null;
+        let currentVersionName = '';
+
+        const STORAGE_KEY = 'dashboard_report_versions';
+
+        // ========== DOCUMENT TYPE MAP ==========
+        const documentTypeMap = {
+            'ACJ': 'Acordo Judicial', 'AFAC': 'Adiantamento Futuro Aumento de Capital', 'ADF': 'Adiantamentos a Fornecedores/Credores', 'APT': 'Aporte', 'AV': 'Aviso de Lançamento', 'CAU': 'Caução', 'CCB': 'Cédula Crédito Bancário', 'CHQ': 'Cheque', 'CSRF': 'Cofins/CSLL/PIS – 5952', 'CF': 'Conhecimento de Transportes', 'CT': 'Contrato', 'CTP': 'Contrato de Projetos', 'CE': 'Contrato Equipamentos', 'CTA': 'Contratos Administrativos', 'CSLL': 'Contribuição Social sobre Lucro Líquido', 'DTT': 'Distrato de Venda', 'DTL': 'Distribuição de Lucro', 'MCOI': 'Doc. Contáb. Sistema Custo Orc. e Incor', 'DOC': 'Documentação', 'DASN': 'Documento Arrecadação Simples Nacional', 'DARE': 'Documento de Arrecadação de Receita Est', 'DAES': 'Documento de Arrecadação do eSocial', 'DARF': 'Documento de Arrecadação Federal', 'DARM': 'Documento de Arrecadação Municipal', 'DEV': 'Documento de Devolução', 'TR': 'Documento de Transferência', 'FAT': 'Fatura', 'FTD': 'Faturamento Direto', 'FER': 'Férias', 'FIN': 'Financiamentos / Empréstimos', 'FGTS': 'Fundo de Garantia do Tempo de Serviço', 'GRU': 'Guia de Recolhimento da União – GRU', 'GUIA': 'Guia para Recolhimento de Impostos', 'GRCS': 'Guia Recolhimento de Comissão Sindical', 'GRLV': 'Guia Recolhimento Licenciamento Veículos', 'HOL': 'Holerite', 'INIE': 'Inicialização de Estoque', 'GPS': 'INSS – Guia da Previdência Social', 'GPSR': 'INSS RPA – Guia da Previdência Social', 'INSS': 'Instituto Nacional do Seguro Social', 'IRPJ': 'IRPJ – Imposto Renda Pessoa Jurídica', 'IRRF': 'IRRF Folha de Pagamento', 'IRNF': 'IRRF s/ NF', 'ISS': 'ISS (Retido NF)', 'MFE': 'Movimento de Frotas e Equipamentos', 'MLE': 'Movimento de Locação de Equipamentos', 'MOV': 'Movimento de Transf. de Equipamento', 'MSST': 'Movimento Segurança Saúde no Trabalho', 'MUT': 'Mútuo', 'PREV': 'Não Utilizar – Cód p/ Análises Financeir', 'NC': 'Nota Comercial', 'NF': 'Nota Fiscal', 'NFCE': 'Nota Fiscal Consumidor Final Eletrônica', 'NFCM': 'Nota Fiscal de Comunicação Eletrônica', 'NFPR': 'Nota Fiscal de Produtor Rural', 'NFSE': 'Nota Fiscal de Serviço Eletrônica', 'NFE': 'Nota Fiscal Eletrônica', 'NFEE': 'Nota Fiscal Eletrônica Energia Elétrica', 'NPJ': 'Nota Fiscal PJ', 'OPD': 'Operações Diretas', 'PMP': 'Parcela Mensal Juros Price', 'PER': 'Permuta', 'PERS': 'Personalização', 'PIS': 'PIS', 'PRC': 'Previsão de Comissão', 'PRDI': 'Previsão de Distrato', 'PRV': 'Previsão de Pagamento/Recebimento', 'PCT': 'Previsão Financeira de Contr. de Med.', 'PPC': 'Previsão Financeira de Pedidos de Compra', 'RAT': 'Rateio', 'REAL': 'Realocação de Materiais', 'RA': 'Recebimento Antecipado', 'REC': 'Recibo', 'RFCS': 'Registro Financiamento, Contrato, Sinal', 'REN': 'Rendimentos Bancários', 'REQ': 'Requisição de Materiais', 'RCT': 'Rescisão de Contrato de Trabalho', 'RD': 'Retirada Diretoria', 'RET': 'RET – Reg. Especial de Tributação', 'SNF': 'Sem Nota Fiscal', 'TB': 'Tarifa Bancária', 'TXA': 'Taxa Administrativa', 'TXO': 'Taxa de Operação', 'TXAS': 'Taxas Diversas', 'TRS': 'Transf. de Materiais por Solicitação', 'TRES': 'Transf./Reserva de Estoque p/Solicitação'
+        };
+
+        // ========== VERSION MANAGEMENT (localStorage) ==========
+        function getVersions() {
+            try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+            catch { return []; }
+        }
+
+        function saveVersion(name, data) {
+            const versions = getVersions();
+            const entry = {
+                id: Date.now().toString(),
+                name: name,
+                date: new Date().toLocaleString('pt-BR'),
+                fornecedoresCount: data.fornecedores ? data.fornecedores.length : 0,
+                atualizadoEm: data.atualizado_em || 'N/A',
+                data: data
+            };
+            versions.unshift(entry); // newest first
+            // Keep max 10 versions to avoid localStorage limits
+            if (versions.length > 10) versions.length = 10;
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(versions));
+            } catch (e) {
+                // If storage full, remove oldest entries
+                while (versions.length > 1) {
+                    versions.pop();
+                    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(versions)); break; }
+                    catch { continue; }
+                }
+                alert('Atenção: armazenamento local quase cheio. Apenas as versões mais recentes foram mantidas.');
+            }
+            renderVersionList();
+        }
+
+        function deleteVersion(id) {
+            let versions = getVersions();
+            versions = versions.filter(v => v.id !== id);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(versions));
+            renderVersionList();
+        }
+
+        function loadVersion(id) {
+            const versions = getVersions();
+            const version = versions.find(v => v.id === id);
+            if (version) {
+                currentVersionName = version.name;
+                loadData(version.data, version.name);
+            }
+        }
+
+        function renderVersionList() {
+            const list = document.getElementById('version-list');
+            const versions = getVersions();
+            if (versions.length === 0) {
+                list.innerHTML = '<div class="no-versions">Nenhuma versão salva ainda.<br>Arraste um PDF para começar.</div>';
+                return;
+            }
+            list.innerHTML = versions.map(v => `
+                <div class="version-item">
+                    <div class="version-item-info" onclick="loadVersion('${v.id}')">
+                        <span class="version-item-name">📋 ${v.name}</span>
+                        <span class="version-item-date">Importado: ${v.date} · Ref: ${v.atualizadoEm}</span>
+                        <span class="version-item-meta">${v.fornecedoresCount} fornecedores</span>
+                    </div>
+                    <div class="version-actions">
+                        <button class="version-btn load" onclick="loadVersion('${v.id}')" title="Carregar">▶</button>
+                        <button class="version-btn" onclick="event.stopPropagation();deleteVersion('${v.id}')" title="Excluir">🗑</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ========== FILE DROP / UPLOAD ==========
+        function setupDropZone() {
+            const zone = document.getElementById('drop-zone');
+            const input = document.getElementById('file-input');
+
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('drag-over');
+                const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.pdf') || f.name.endsWith('.json'));
+                if (files.length) processFiles_UI(files);
+                else alert('Por favor, solte arquivos .pdf ou .json');
+            });
+            input.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length) processFiles_UI(files);
+            });
+        }
+
+        function showProcessing(msg) {
+            document.getElementById('processing-text').textContent = msg;
+            document.getElementById('processing-overlay').style.display = 'flex';
+        }
+        function hideProcessing() {
+            document.getElementById('processing-overlay').style.display = 'none';
+        }
+
+        async function processFiles_UI(files) {
+            showProcessing('Preparando...');
+            try {
+                const jsonFiles = files.filter(f => f.name.endsWith('.json'));
+                const pdfFiles = files.filter(f => f.name.endsWith('.pdf'));
+                let data = null;
+
+                if (pdfFiles.length > 0) {
+                    if (!pyodideReady) {
+                        hideProcessing();
+                        alert('O motor de PDF ainda está carregando. Aguarde a mensagem "Motor de PDF pronto!" e tente novamente.');
+                        return;
+                    }
+                    showProcessing(`Processando ${pdfFiles.length} PDF(s)...`);
+
+                    // Read all PDFs as ArrayBuffers and send to Python
+                    const pdfBytesList = [];
+                    for (const f of files) {
+                        if (f.name.endsWith('.pdf')) {
+                            const buf = await f.arrayBuffer();
+                            pdfBytesList.push(new Uint8Array(buf));
+                        }
+                    }
+
+                    // Pass to Pyodide
+                    pyodide.globals.set('pdf_inputs', pyodide.toPy(pdfBytesList));
+                    const resultJson = await pyodide.runPythonAsync(`
+result_list = [bytes(b) for b in pdf_inputs]
+processar_pdf_bytes(result_list)
+`);
+                    data = JSON.parse(resultJson);
+
+                    // Also process any JSON files
+                    for (const jf of jsonFiles) {
+                        const text = await jf.text();
+                        const jdata = JSON.parse(text);
+                        if (jdata.fornecedores) {
+                            // Simple merge in JS
+                            data.fornecedores.push(...jdata.fornecedores);
+                            data.total_geral += jdata.total_geral || 0;
+                            data.total_fornecedores = data.fornecedores.length;
+                            data.total_documentos = data.fornecedores.reduce((s, f) => s + f.qtd, 0);
+                        }
+                    }
+                } else if (jsonFiles.length > 0) {
+                    const file = jsonFiles[0];
+                    const text = await file.text();
+                    data = JSON.parse(text);
+                }
+
+                if (!data || !data.fornecedores || data.fornecedores.length === 0) {
+                    hideProcessing();
+                    alert('Nenhum dado encontrado. Verifique se os PDFs são do relatório Contas a Pagar do Sienge.');
+                    return;
+                }
+                const versionName = files.map(f => f.name.replace(/\.(pdf|json)$/i, '')).join(' + ');
+                hideProcessing();
+                saveVersion(versionName, data);
+                currentVersionName = versionName;
+                loadData(data, versionName);
+            } catch (err) {
+                hideProcessing();
+                alert('Erro ao processar: ' + err.message);
+                console.error(err);
+            }
+        }
+
+        // ========== LOAD DATA INTO DASHBOARD ==========
+        function loadData(data, versionName) {
+            rawData = data;
+            // Reset filters
+            currentMonthFilter = 'all'; currentObraFilter = 'all'; currentYearFilter = 'all';
+            currentStatusFilter = 'all'; currentTypeFilter = 'all'; currentSearchTerm = '';
+            sortConfig = { column: 'total', direction: 'desc' };
+            if (document.getElementById('search')) document.getElementById('search').value = '';
+
+            // Reset selects
+            ['year-select', 'month-select', 'obra-select'].forEach(id => {
+                const el = document.getElementById(id);
+                el.innerHTML = '<option value="all">Tod' + (id === 'obra-select' ? 'as' : 'os') + '</option>';
+            });
+
+            // Hide landing, show dashboard
+            const lp = document.getElementById('landing-page');
+            lp.style.opacity = '0';
+            setTimeout(() => { lp.style.display = 'none'; }, 400);
+            document.getElementById('dashboard-content').style.display = 'block';
+            document.getElementById('btn-new-report').style.display = 'block'; document.getElementById('btn-excel').style.display = 'flex';
+            document.getElementById('btn-sidebar').style.display = 'flex';
+
+            // Version label
+            document.getElementById('version-label').textContent = 'Versão: ' + versionName;
+
+            init();
+        }
+
+        function showLanding() {
+            document.getElementById('landing-page').style.display = 'flex';
+            setTimeout(() => { document.getElementById('landing-page').style.opacity = '1'; }, 10);
+            renderVersionList();
+        }
+
+        // ========== UTILITY FUNCTIONS ==========
+        function formatCurrency(val) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+        }
+        function getStatusClass(status) {
+            if (status.includes('Vencido')) return 'badge-vencido';
+            if (status.includes('até 30 dias')) return 'badge-30d';
+            return 'badge-ok';
+        }
+        function getMonthKey(dateStr) { if (!dateStr || dateStr === 'N/A') return null; return dateStr.split('/')[1]; }
+        function getYearKey(dateStr) { if (!dateStr || dateStr === 'N/A') return null; return dateStr.split('/')[2]; }
+
+        // ========== INIT (populate filters) ==========
+        function init() {
+            document.getElementById('update-time').textContent = rawData.atualizado_em || 'N/A';
+
+            const obraSet = new Set(), yearSet = new Set(), monthSet = new Set();
+            rawData.fornecedores.forEach(f => {
+                f.documentos.forEach(d => {
+                    if (d.obra) obraSet.add(d.obra);
+                    if (d.vencimento) {
+                        const y = getYearKey(d.vencimento), m = getMonthKey(d.vencimento);
+                        if (y) yearSet.add(y);
+                        if (m) monthSet.add(m);
+                    }
+                });
+            });
+
+            const obraSelect = document.getElementById('obra-select');
+            Array.from(obraSet).sort().forEach(o => {
+                const opt = document.createElement('option'); opt.value = o; opt.textContent = o;
+                obraSelect.appendChild(opt);
+            });
+
+            const yearSelect = document.getElementById('year-select');
+            Array.from(yearSet).sort().forEach(y => {
+                const opt = document.createElement('option'); opt.value = y; opt.textContent = y;
+                yearSelect.appendChild(opt);
+            });
+
+            const monthSelect = document.getElementById('month-select');
+            Array.from(monthSet).sort().forEach(m => {
+                const opt = document.createElement('option'); opt.value = m; opt.textContent = m;
+                monthSelect.appendChild(opt);
+            });
+
+            obraSelect.addEventListener('change', (e) => { currentObraFilter = e.target.value; applyFilters(); });
+            yearSelect.addEventListener('change', (e) => { currentYearFilter = e.target.value; applyFilters(); });
+            monthSelect.addEventListener('change', (e) => { currentMonthFilter = e.target.value; applyFilters(); });
+
+            document.getElementById('search').addEventListener('input', (e) => {
+                currentSearchTerm = e.target.value.toLowerCase();
+                if (currentSearchTerm) showDropdown(); else document.getElementById('search-dropdown').style.display = 'none';
+                applyFilters();
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-container')) document.getElementById('search-dropdown').style.display = 'none';
+            });
+
+            applyFilters();
+        }
+
+        // ========== FILTERS & RENDERING ==========
+        function applyFilters() {
+            const filteredFornecedores = [];
+            let totalGeral = 0, totalVencido = 0, total30d = 0, totalOk = 0, totalDocsCount = 0;
+            let typeCounts = {};
+
+            document.getElementById('kpi-all').classList.toggle('active-all', currentStatusFilter === 'all');
+            document.getElementById('kpi-vencido').classList.toggle('active-vencido', currentStatusFilter === 'Vencido');
+            document.getElementById('kpi-30d').classList.toggle('active-30d', currentStatusFilter === 'A vencer (até 30 dias)');
+            document.getElementById('kpi-ok').classList.toggle('active-ok', currentStatusFilter === 'A vencer (acima de 30 dias)');
+
+            const refDate = new Date();
+
+            rawData.fornecedores.forEach(f => {
+                const contextDocs = f.documentos.filter(d => {
+                    const matchesObra = currentObraFilter === 'all' || d.obra === currentObraFilter;
+                    const matchesYear = currentYearFilter === 'all' || getYearKey(d.vencimento) === currentYearFilter;
+                    const matchesMonth = currentMonthFilter === 'all' || getMonthKey(d.vencimento) === currentMonthFilter;
+                    return matchesObra && matchesYear && matchesMonth;
+                });
+
+                if (contextDocs.length > 0) {
+                    contextDocs.forEach(d => {
+                        if (currentStatusFilter === 'all' || d.status === currentStatusFilter) {
+                            typeCounts[d.tipo] = (typeCounts[d.tipo] || 0) + 1;
+                        }
+                    });
+
+                    const kpiDocs = contextDocs.filter(d => currentTypeFilter === 'all' || d.tipo === currentTypeFilter);
+
+                    // Regra de classificação (Autor: Pedro Henrique Brasil Ribeiro)
+                    // Vencidos do mês atual são tratados como "A vencer (até 30 dias)"
+                    // Somente meses anteriores são considerados "Vencido"
+                    kpiDocs.forEach(d => {
+                        const valor = d.valor;
+                        totalGeral += valor;
+                        const [day, month, year] = d.vencimento.split('/').map(Number);
+                        const vencDate = new Date(year, month - 1, day);
+                        const diffDays = Math.ceil((vencDate - refDate) / (1000 * 60 * 60 * 24));
+                        if (diffDays < 0) {
+                            // Se o vencimento é do mês atual, considerar como "a vencer (30D)"
+                            if (vencDate.getFullYear() === refDate.getFullYear() && vencDate.getMonth() === refDate.getMonth()) {
+                                total30d += valor; d.status = 'A vencer (até 30 dias)';
+                            } else {
+                                totalVencido += valor; d.status = 'Vencido';
+                            }
+                        }
+                        else if (diffDays <= 30) { total30d += valor; d.status = 'A vencer (até 30 dias)'; }
+                        else { totalOk += valor; d.status = 'A vencer (acima de 30 dias)'; }
+                    });
+
+                    const viewDocs = contextDocs.filter(d => {
+                        return (currentStatusFilter === 'all' || d.status === currentStatusFilter) && (currentTypeFilter === 'all' || d.tipo === currentTypeFilter);
+                    });
+
+                    if (viewDocs.length > 0) {
+                        totalDocsCount += viewDocs.length;
+                        if (f.fornecedor.toLowerCase().includes(currentSearchTerm)) {
+                            filteredFornecedores.push({
+                                ...f, documentos: viewDocs,
+                                total: viewDocs.reduce((acc, d) => acc + d.valor, 0),
+                                qtd: viewDocs.length, proximo: viewDocs[0].vencimento
+                            });
+                        }
+                    }
+                }
+            });
+
+            // Build Type Indicators
+            const ic = document.getElementById('type-indicators');
+            const title = ic.querySelector('.section-title');
+            ic.innerHTML = ''; ic.appendChild(title);
+            Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).forEach(([type, count]) => {
+                const badge = document.createElement('div');
+                badge.className = `type-badge ${currentTypeFilter === type ? 'active' : ''}`;
+                badge.onclick = () => toggleTypeFilter(type);
+                badge.setAttribute('data-tooltip', documentTypeMap[type] || type);
+                badge.innerHTML = `<span class="type-count">${count}</span><span class="type-label">${type}</span>`;
+                ic.appendChild(badge);
+            });
+
+            // Sort
+            filteredFornecedores.sort((a, b) => {
+                let valA = a[sortConfig.column], valB = b[sortConfig.column];
+                if (sortConfig.column === 'proximo') {
+                    const parseDate = (s) => { if (!s || s === 'N/A') return new Date(3000, 0, 1); const [d, m, y] = s.split('/').map(Number); return new Date(y, m - 1, d); };
+                    valA = parseDate(valA); valB = parseDate(valB);
+                }
+                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            document.getElementById('total-geral').textContent = formatCurrency(totalGeral);
+            document.getElementById('total-vencido').textContent = formatCurrency(totalVencido);
+            document.getElementById('total-30d').textContent = formatCurrency(total30d);
+            document.getElementById('total-ok').textContent = formatCurrency(totalOk);
+            document.getElementById('total-fornecedores').textContent = filteredFornecedores.length;
+            document.getElementById('total-documentos').textContent = totalDocsCount;
+
+            updateSortUI();
+            renderTable(filteredFornecedores);
+            renderMonthlyChart(filteredFornecedores);
+            renderTop10(filteredFornecedores);
+            // Store for Excel export
+            window._lastFilteredData = filteredFornecedores;
+        }
+
+        function toggleSort(column) {
+            if (sortConfig.column === column) sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+            else { sortConfig.column = column; sortConfig.direction = (column === 'total' || column === 'qtd') ? 'desc' : 'asc'; }
+            applyFilters();
+        }
+
+        function updateSortUI() {
+            document.querySelectorAll('th.sortable').forEach(th => { th.classList.remove('sort-active'); th.querySelector('.sort-icon').textContent = '↕'; });
+            const activeTh = document.getElementById(`th-${sortConfig.column}`);
+            if (activeTh) { activeTh.classList.add('sort-active'); activeTh.querySelector('.sort-icon').textContent = sortConfig.direction === 'asc' ? '↑' : '↓'; }
+        }
+
+        function renderTable(suppliers) {
+            const body = document.getElementById('supplier-body');
+            body.innerHTML = '';
+            suppliers.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.onclick = () => showDetails(s);
+                tr.innerHTML = `<td>${s.fornecedor}</td><td class="text-right">${s.qtd}</td><td class="text-right"><strong>${formatCurrency(s.total)}</strong></td><td class="text-right">${s.proximo}</td><td class="text-center"><button class="btn-view">Ver Docs</button></td>`;
+                body.appendChild(tr);
+            });
+        }
+
+        function showDetails(supplier) {
+            document.getElementById('modal-title').textContent = supplier.fornecedor;
+            const body = document.getElementById('details-body');
+            body.innerHTML = '';
+            supplier.documentos.forEach(d => {
+                body.innerHTML += `<tr><td>${d.documento || '---'}</td><td>${d.lancamento || '---'}</td><td>${d.tipo}</td><td><small>${d.obra}</small></td><td class="text-right">${d.vencimento}</td><td class="text-right">${formatCurrency(d.valor)}</td><td class="text-center"><span class="badge ${getStatusClass(d.status)}">${d.status}</span></td></tr>`;
+            });
+            document.getElementById('modal-overlay').style.display = 'flex';
+        }
+
+        function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+        window.onclick = (e) => { if (e.target.id === 'modal-overlay') closeModal(); }
+
+        function toggleStatusFilter(status) {
+            currentStatusFilter = (currentStatusFilter === status && status !== 'all') ? 'all' : status;
+            applyFilters();
+        }
+
+        function toggleTypeFilter(type) {
+            currentTypeFilter = (currentTypeFilter === type && type !== 'all') ? 'all' : type;
+            applyFilters();
+        }
+
+        function toggleSidebar() { document.getElementById('sidebar-panel').classList.toggle('open'); }
+
+        function showDropdown() {
+            const dropdown = document.getElementById('search-dropdown');
+            dropdown.innerHTML = '';
+            const unique = rawData.fornecedores.filter(f => f.fornecedor.toLowerCase().includes(currentSearchTerm)).map(f => f.fornecedor).slice(0, 10);
+            if (unique.length > 0) {
+                unique.forEach(name => {
+                    const div = document.createElement('div'); div.className = 'dropdown-item'; div.textContent = name;
+                    div.onclick = () => { document.getElementById('search').value = name; currentSearchTerm = name.toLowerCase(); dropdown.style.display = 'none'; applyFilters(); };
+                    dropdown.appendChild(div);
+                });
+                dropdown.style.display = 'block';
+            } else dropdown.style.display = 'none';
+        }
+
+        function renderMonthlyChart(fornecedores) {
+            setTimeout(() => {
+                try {
+                    const monthlyData = {};
+                    fornecedores.forEach(f => { if (f.documentos) f.documentos.forEach(d => { if (d.vencimento && d.vencimento !== 'N/A') { const [day, month, year] = d.vencimento.split('/'); monthlyData[year + '-' + month] = (monthlyData[year + '-' + month] || 0) + d.valor; } }); });
+                    const sortedKeys = Object.keys(monthlyData).sort();
+                    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                    const labels = sortedKeys.map(k => { const [y, m] = k.split('-'); return monthNames[parseInt(m) - 1] + '/' + y.slice(2); });
+                    const values = sortedKeys.map(k => monthlyData[k]);
+                    const canvas = document.getElementById('monthlyChart');
+                    if (!canvas) return;
+                    const ctx = canvas.getContext('2d');
+                    if (monthlyChart) monthlyChart.destroy();
+                    monthlyChart = new Chart(ctx, {
+                        type: 'line', data: { labels, datasets: [{ label: 'Desembolso Mensal', data: values, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#10b981', pointBorderColor: '#fff', pointBorderWidth: 2 }] },
+                        options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } }, plugins: { legend: { display: true, labels: { color: '#94a3b8' } } } }
+                    });
+                } catch (e) { console.error('Erro chart:', e); }
+            }, 100);
+        }
+
+        function renderTop10(fornecedores) {
+            try {
+                const supplierTotals = {};
+                fornecedores.forEach(f => { if (f.fornecedor && f.total !== undefined) supplierTotals[f.fornecedor] = { valor: f.total, qtd: f.qtd }; });
+                const top10 = Object.entries(supplierTotals).sort((a, b) => b[1].valor - a[1].valor).slice(0, 10);
+                const listContainer = document.getElementById('top-10-list');
+                listContainer.innerHTML = '';
+                top10.forEach((item, index) => {
+                    const [name, data] = item;
+                    const div = document.createElement('div'); div.className = 'top-10-item';
+                    div.innerHTML = `<div><span class="top-10-rank">${index + 1}</span><span class="top-10-name">${name}</span></div><div class="top-10-value">${formatCurrency(data.valor)}</div><div class="top-10-docs">${data.qtd} doc(s)</div>`;
+                    listContainer.appendChild(div);
+                });
+            } catch (e) { console.error('Erro top10:', e); }
+        }
+
+        // ========== EXCEL EXPORT ==========
+        function exportToExcel() {
+            const data = window._lastFilteredData;
+            if (!data || !data.length) { alert('Nenhum dado para exportar. Carregue um relatório primeiro.'); return; }
+
+            const fmtCurrency = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            // Build detail rows (one per document)
+            const detailRows = [];
+            data.forEach(f => {
+                f.documentos.forEach(d => {
+                    detailRows.push({
+                        'Fornecedor': f.fornecedor,
+                        'Obra': d.obra || '',
+                        'Tipo': d.tipo || '',
+                        'Documento': d.documento || '',
+                        'Lançamento': d.lancamento || '',
+                        'Vencimento': d.vencimento || '',
+                        'Valor (R$)': fmtCurrency(d.valor || 0),
+                        'Status': d.status || ''
+                    });
+                });
+            });
+
+            // Build summary rows (one per supplier)
+            const summaryRows = data.map(f => {
+                // Determine dominant status
+                const statusCounts = {};
+                f.documentos.forEach(d => { statusCounts[d.status] = (statusCounts[d.status] || 0) + 1; });
+                const hasVencido = statusCounts['Vencido'] > 0;
+                const has30d = statusCounts['A vencer (até 30 dias)'] > 0;
+                let status = 'A vencer (acima de 30 dias)';
+                if (hasVencido) status = 'Vencido';
+                else if (has30d) status = 'A vencer (até 30 dias)';
+
+                return {
+                    'Fornecedor': f.fornecedor,
+                    'Qt. Docs': f.qtd,
+                    'Total (R$)': fmtCurrency(f.total),
+                    'Próximo Venc.': f.proximo || '',
+                    'Status': status
+                };
+            });
+
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+
+            // Sheet 1: Summary
+            const wsResumo = XLSX.utils.json_to_sheet(summaryRows);
+            wsResumo['!cols'] = [{ wch: 45 }, { wch: 10 }, { wch: 20 }, { wch: 14 }, { wch: 30 }];
+            XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo por Fornecedor');
+
+            // Sheet 2: Details
+            const wsDetalhe = XLSX.utils.json_to_sheet(detailRows);
+            wsDetalhe['!cols'] = [{ wch: 45 }, { wch: 22 }, { wch: 8 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 30 }];
+            XLSX.utils.book_append_sheet(wb, wsDetalhe, 'Documentos Detalhados');
+
+            // Generate filename
+            const parts = ['Contas_a_Pagar'];
+            if (currentVersionName) parts.push(currentVersionName.replace(/[^a-zA-Z0-9]/g, '_'));
+            const today = new Date().toISOString().slice(0, 10);
+            parts.push(today);
+            const filename = parts.join('_') + '.xlsx';
+
+            XLSX.writeFile(wb, filename);
+        }
+
+        // ========== STARTUP ==========
+        setupDropZone();
+        renderVersionList();
+    </script>
+</body>
+
+</html>
